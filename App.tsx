@@ -1,27 +1,27 @@
 /* eslint-disable react-native/no-inline-styles */
 import { runOnJS } from 'react-native-reanimated';
 import * as React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Image } from 'react-native';
 import { useCameraDevices, useFrameProcessor } from 'react-native-vision-camera';
 import { Camera } from 'react-native-vision-camera';
 import { scanFaces, Face } from 'vision-camera-face-detector';
+import RNFS from 'react-native-fs';
 
 export default function App() {
   const [hasPermission, setHasPermission] = React.useState(false);
   const [faces, setFaces] = React.useState<Face[]>();
   const [faceDetected, setFaceDetected] = React.useState(false);
   const cameraRef = React.useRef<Camera | null>(null);
-
   const devices = useCameraDevices();
   const device = devices.front;
 
   React.useEffect(() => {
-    console.log(faces);
+    console.log("faces");
 
     // Check if faces are detected and set the state accordingly
     setFaceDetected(faces && faces.length > 0);
 
-    // If faces are detected, capture the photo
+    // If faces are detected, capture the photo and convert it to base64
     if (faceDetected && cameraRef.current) {
       capturePhoto();
     }
@@ -45,7 +45,12 @@ export default function App() {
       const photo = await cameraRef.current?.takePhoto();
 
       if (photo) {
+        // Read the image file and convert it to base64
         console.log('Captured photo:', photo);
+        const imagePath = `file://${photo.path}`;
+        const base64 = await RNFS.readFile(imagePath, 'base64');
+
+        console.log('Captured photo base64:', base64);
       }
     } catch (error) {
       console.error('Error capturing photo:', error);
