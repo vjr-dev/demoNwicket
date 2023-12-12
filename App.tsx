@@ -1,123 +1,87 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+/* eslint-disable react-native/no-inline-styles */
+import { runOnJS } from 'react-native-reanimated';
+import * as React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useCameraDevices, useFrameProcessor } from 'react-native-vision-camera';
+import { Camera } from 'react-native-vision-camera';
+import { scanFaces, Face } from 'vision-camera-face-detector';
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+export default function App() {
+  const [hasPermission, setHasPermission] = React.useState(false);
+  const [faces, setFaces] = React.useState<Face[]>();
+  const [faceDetected, setFaceDetected] = React.useState(false);
+  const cameraRef = React.useRef<Camera | null>(null);
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+  const devices = useCameraDevices();
+  const device = devices.front;
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+  React.useEffect(() => {
+    console.log(faces);
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+    // Check if faces are detected and set the state accordingly
+    setFaceDetected(faces && faces.length > 0);
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+    // If faces are detected, capture the photo
+    if (faceDetected && cameraRef.current) {
+      capturePhoto();
+    }
+  }, [faces]);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  React.useEffect(() => {
+    (async () => {
+      const status = await Camera.requestCameraPermission();
+      setHasPermission(status === 'authorized');
+    })();
+  }, []);
+
+  const frameProcessor = useFrameProcessor((frame) => {
+    'worklet';
+    const scannedFaces = scanFaces(frame);
+    runOnJS(setFaces)(scannedFaces);
+  }, []);
+
+  const capturePhoto = async () => {
+    try {
+      const photo = await cameraRef.current?.takePhoto();
+
+      if (photo) {
+        console.log('Captured photo:', photo);
+      }
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+    }
   };
 
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-            flex:1
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+  return device != null && hasPermission ? (
+    <>
+      <View style={styles.container}>
+        <Camera
+          style={StyleSheet.absoluteFill}
+          photo={true}
+          device={device}
+          isActive={true}
+          frameProcessor={frameProcessor}
+          frameProcessorFps={5}
+          ref={(ref) => (cameraRef.current = ref)}
+        />
+        {faceDetected && <View style={styles.faceBox} />}
+      </View>
+    </>
+  ) : null;
 }
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
   container: {
-    flex:1,
-    width:'100%'
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
+  faceBox: {
+    position: 'absolute',
+    width: '60%',
+    aspectRatio: 1,
+    borderWidth: 2,
+    borderColor: 'green',
+    padding: 30,
   },
 });
-
-export default App;
